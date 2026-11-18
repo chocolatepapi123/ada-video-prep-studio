@@ -1,5 +1,5 @@
 import { FFmpeg } from '@ffmpeg/ffmpeg'
-import { fetchFile, toBlobURL } from '@ffmpeg/util'
+import { toBlobURL } from '@ffmpeg/util'
 
 // Single-threaded core: no SharedArrayBuffer, so no COOP/COEP headers needed (works on GitHub Pages).
 const base = `${import.meta.env.BASE_URL}ffmpeg/`
@@ -20,26 +20,30 @@ export function cancelFFmpeg() {
   if (ff) { ff.terminate(); ff = null }
 }
 
-// Fit within 1080 on the short side, never upscale, keep aspect ratio, force even dimensions.
-const VF = [
-  "scale='if(gt(iw,ih),-2,min(1080,iw))':'if(gt(iw,ih),min(1080,ih),-2)'",
+// Fit within maxShort on the short side, never upscale, keep aspect ratio, force even dimensions.
+const buildVF = (m) => [
+  `scale='if(gt(iw,ih),-2,min(${m},iw))':'if(gt(iw,ih),min(${m},ih),-2)'`,
   'scale=trunc(iw/2)*2:trunc(ih/2)*2',
   'fps=30',
   'format=yuv420p'
 ].join(',')
 
-export async function convert(file, onProgress, onLog) {
+export async function convert(file, onProgress, onLog, maxShort = 1080) {
   const ffmpeg = await getFFmpeg(onLog)
   const handler = ({ progress }) => onProgress(Math.min(1, Math.max(0, progress)))
   ffmpeg.on('progress', handler)
   const input = 'in_' + Date.now() + '.' + (file.name.split('.').pop() || 'mp4')
   const output = 'out.mp4'
   try {
-    await ffmpeg.writeFile(input, await fetchFile(file))
+    let bytes
+    try { bytes = new Uint8Array(await file.arrayBuffer()) }
+    catch { throw new Error('Your browser lost access to this file. Remove it and add it again.') }
+    await ffmpeg.writeFile(input, bytes)
+    bytes = null
     const code = await ffmpeg.exec([
       '-i', input, '-map', '0:v:0', '-map', '0:a:0?',
-      '-vf', VF, '-r', '30',
-      '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-profile:v', 'high', '-pix_fmt', 'yuv420p',
+      '-vf', buildVF(maxShort), '-r', '30',
+      '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-profile:v', 'main', '-bf', '0', '-g', '30', '-pix_fmt', 'yuv420p',
       '-c:a', 'aac', '-b:a', '128k', '-ar', '48000', '-ac', '2',
       '-movflags', '+faststart', '-y', output
     ])
@@ -51,5 +55,6 @@ export async function convert(file, onProgress, onLog) {
     ffmpeg.off('progress', handler)
     try { await ffmpeg.deleteFile(input) } catch {}
     try { await ffmpeg.deleteFile(output) } catch {}
+    cancelFFmpeg() // fresh engine for the next file frees WebAssembly memory
   }
 }

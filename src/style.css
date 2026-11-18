@@ -43,3 +43,8 @@ footer{text-align:center;color:var(--muted);font-size:.8rem;margin-top:24px;line
 .desktop-only{display:none}
 @media (hover:hover) and (min-width:700px){.desktop-only{display:block}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.seg button{background:#2a2a2e;border:1px solid var(--line);color:#fff;border-radius:14px;padding:10px;font:inherit;cursor:pointer;display:flex;flex-direction:column;gap:2px;min-height:56px}
+.seg button span{font-size:.75rem;color:var(--muted)}
+.seg button.on{border-color:var(--green);background:#10241d}
+.seg button:disabled{opacity:.5}

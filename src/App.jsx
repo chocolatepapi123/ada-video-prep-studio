@@ -10,6 +10,7 @@ import { useQueue } from './hooks.js'
 export default function App() {
   const q = useQueue()
   const [notice, setNotice] = useState('')
+  const [maxShort, setMaxShort] = useState(1080)
   const onFiles = async (files) => {
     const n = await q.add(files)
     setNotice(n ? '' : 'None of those files look like videos. Try MP4, MOV, M4V, WEBM, MKV, AVI or 3GP.')
@@ -22,14 +23,14 @@ export default function App() {
         {notice && <div className="card err-card">{notice}</div>}
         {q.items.length > 0 && (
           <>
-            <ProcessingPanel items={q.items} busy={q.busy} task={q.task} onStart={q.start} onCancel={() => q.current && q.remove(q.current)} onClear={q.clear} />
+            <ProcessingPanel items={q.items} busy={q.busy} task={q.task} onStart={() => q.start(maxShort)} onCancel={() => q.current && q.remove(q.current)} onClear={q.clear} />
             <VideoQueue items={q.items} onRemove={q.remove} />
             <ResultsPanel items={q.items} />
           </>
         )}
-        <ConversionSettings />
+        <ConversionSettings maxShort={maxShort} onChange={setMaxShort} disabled={q.busy} />
       </main>
-      <footer>Private by design. Your videos never leave your device. · Version 1.0</footer>
+      <footer>Private by design. Your videos never leave your device. · Version 1.2</footer>
     </div>
   )
 }

@@ -16,7 +16,7 @@ export function formatDuration(s) {
   return `${m}:${String(Math.round(s % 60)).padStart(2, '0')}`
 }
 
-export const outputName = (name) => name.replace(/\.[^.]+$/, '').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-') + '-rada.mp4'
+export const outputName = (name) => (name.replace(/\.[^.]+$/, '').replace(/[\\/:*?"<>|]+/g, '').trim() || 'video') + '.mp4'
 
 // Reads duration and dimensions with a <video> element (works if the browser can decode the file).
 export function probe(file) {
