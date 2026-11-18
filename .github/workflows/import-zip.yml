@@ -1,0 +1,51 @@
+name: Import ZIP
+
+on:
+  push:
+    branches: [main]
+    paths: ['incoming/*.zip']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unzip and copy into repo
+        run: |
+          shopt -s nullglob
+          zips=(incoming/*.zip)
+          if [ ${#zips[@]} -eq 0 ]; then echo "No zips found"; exit 0; fi
+          for z in "${zips[@]}"; do
+            tmp=$(mktemp -d)
+            unzip -q "$z" -d "$tmp"
+            rm -rf "$tmp/__MACOSX"
+            entries=("$tmp"/* "$tmp"/.[!.]*)
+            entries=($(printf '%s\n' "${entries[@]}" | while read -r e; do [ -e "$e" ] && echo "$e"; done))
+            src="$tmp"
+            if [ ${#entries[@]} -eq 1 ] && [ -d "${entries[0]}" ]; then src="${entries[0]}"; fi
+            rsync -a --exclude '.git/' --exclude '.github/' --exclude 'node_modules/' --exclude 'incoming/' "$src"/ ./
+            git rm -q "$z"
+          done
+
+      - name: Commit and push
+        id: commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then echo "changed=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          git commit -m "Import ZIP from incoming/"
+          git push
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Trigger deploy
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy.yml --ref main
